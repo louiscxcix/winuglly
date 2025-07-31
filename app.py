@@ -1,8 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
 import re
-from html2image import Html2Image
-from pathlib import Path
 
 # --- 페이지 기본 설정 ---
 st.set_page_config(
@@ -10,72 +8,6 @@ st.set_page_config(
     page_icon="🥊",
     layout="centered"
 )
-
-# --- UI 스타일링을 위한 CSS ---
-# 텍스트 색상을 검은색(#333)으로 수정했습니다.
-CSS = """
-<style>
-/* 리포트 전체를 감싸는 컨테이너 */
-#report-container {
-    padding: 15px;
-    background-color: #ffffff;
-    border-radius: 10px;
-}
-/* 피드백 박스 기본 스타일 */
-.feedback-box {
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
-    background-color: #f9f9f9;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    color: #333333; /* 텍스트 색상을 검은색 계열로 지정 */
-}
-.feedback-box h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: #111827;
-}
-/* 인용문 박스 스타일 */
-.quote-box {
-    border-left: 5px solid;
-    padding: 15px;
-    margin: 15px 0;
-    border-radius: 5px;
-    font-style: italic;
-    font-weight: bold;
-    color: #1f2937;
-}
-.quote-box-good {
-    border-color: #3b82f6; /* 파란색 */
-    background-color: #eff6ff;
-}
-.quote-box-bad {
-    border-color: #ef4444; /* 빨간색 */
-    background-color: #fee2e2;
-}
-/* 미션 리스트 스타일 */
-.mission-list {
-    list-style-type: none;
-    padding-left: 0;
-}
-.mission-list li {
-    margin-bottom: 10px;
-    font-weight: 500;
-    display: flex;
-    align-items: flex-start;
-}
-.mission-list li::before {
-    content: "✓";
-    color: #22c55e; /* 초록색 */
-    font-weight: bold;
-    margin-right: 10px;
-    font-size: 1.2em;
-}
-</style>
-"""
 
 # --- Gemini API 키 설정 ---
 try:
@@ -126,66 +58,124 @@ def get_gemini_feedback(user_strategy_input):
     response = model.generate_content(prompt)
     return response.text
 
-def generate_html_report(feedback_text):
+def build_report_component(feedback_text):
     """
-    Gemini로부터 받은 텍스트를 파싱하여 완전한 HTML 리포트 문자열을 생성합니다.
+    피드백 텍스트를 기반으로, 이미지 저장 기능이 포함된 완전한 HTML 컴포넌트를 생성합니다.
     """
+    # 1. 피드백 텍스트를 HTML 콘텐츠로 파싱
     sections = re.split(r'###\s*\d\.', feedback_text)
-    html_content = ""
+    report_content_html = ""
 
-    # 1. 종합 진단
+    # 종합 진단
     if len(sections) > 1:
-        html_content += f"""
-        <div class="feedback-box">
-            <h3>1. 종합 진단</h3>
-            <p>{sections[1].strip()}</p>
-        </div>
-        """
-
-    # 2. 칭찬할 점
+        report_content_html += f"<h3>1. 종합 진단</h3><p>{sections[1].strip()}</p>"
+    # 칭찬할 점
     if len(sections) > 2:
         content = sections[2].split(')', 1)[-1].strip()
         quote_match = re.search(r'>\s*(.*)', content)
         if quote_match:
             quote = quote_match.group(1)
             feedback = content.split(quote_match.group(0))[-1].strip()
-            html_content += f"""
-            <div class="feedback-box">
-                <h3>2. 칭찬할 점 (Ugly Points 🥊)</h3>
-                <div class="quote-box quote-box-good">{quote}</div>
-                <p>{feedback}</p>
-            </div>
-            """
-
-    # 3. 보완할 점
+            report_content_html += f"<h3>2. 칭찬할 점 (Ugly Points 🥊)</h3><div class='quote-box quote-box-good'>{quote}</div><p>{feedback}</p>"
+    # 보완할 점
     if len(sections) > 3:
         content = sections[3].split(')', 1)[-1].strip()
         quote_match = re.search(r'>\s*(.*)', content)
         if quote_match:
             quote = quote_match.group(1)
             feedback = content.split(quote_match.group(0))[-1].strip()
-            html_content += f"""
-            <div class="feedback-box">
-                <h3>3. 보완할 점 (Nice Points 😇)</h3>
-                <div class="quote-box quote-box-bad">{quote}</div>
-                <p>{feedback}</p>
-            </div>
-            """
-
-    # 4. 당신의 Win Ugly 미션
+            report_content_html += f"<h3>3. 보완할 점 (Nice Points 😇)</h3><div class='quote-box quote-box-bad'>{quote}</div><p>{feedback}</p>"
+    # Win Ugly 미션
     if len(sections) > 4:
         missions = sections[4].strip().split('\n- ')
         missions_html = "".join([f"<li>{m.strip()}</li>" for m in missions if m.strip()])
-        html_content += f"""
-        <div class="feedback-box">
-            <h3>4. 당신의 Win Ugly 미션</h3>
-            <ul class="mission-list">{missions_html}</ul>
-        </div>
-        """
-    
-    # 전체 HTML 구조로 감싸서 반환
-    return f"<html><head><meta charset='utf-8'></head><body>{CSS}<div id='report-container'>{html_content}</div></body></html>"
+        report_content_html += f"<h3>4. 당신의 Win Ugly 미션</h3><ul class='mission-list'>{missions_html}</ul>"
 
+    # 2. 최종 HTML 컴포넌트 조합
+    final_html = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+            body {{
+                font-family: 'Noto Sans KR', sans-serif;
+                background-color: #f0f2f6;
+            }}
+            #report-card {{
+                border: 1px solid #e0e0e0;
+                border-radius: 15px;
+                padding: 25px;
+                background-color: #ffffff;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+                color: #333;
+            }}
+            #report-card h3 {{
+                font-family: 'Noto Sans KR', sans-serif;
+                font-weight: 700;
+                color: #111827;
+                border-bottom: 2px solid #e5e7eb;
+                padding-bottom: 10px;
+                margin-top: 20px;
+            }}
+            .quote-box {{
+                border-left: 5px solid; padding: 15px; margin: 15px 0; border-radius: 5px;
+                font-style: italic; font-weight: bold; color: #1f2937;
+            }}
+            .quote-box-good {{ border-color: #3b82f6; background-color: #eff6ff; }}
+            .quote-box-bad {{ border-color: #ef4444; background-color: #fee2e2; }}
+            .mission-list {{ list-style-type: none; padding-left: 0; }}
+            .mission-list li {{
+                margin-bottom: 10px; font-weight: 500; display: flex; align-items: flex-start;
+            }}
+            .mission-list li::before {{
+                content: "✓"; color: #22c55e; font-weight: bold; margin-right: 10px; font-size: 1.2em;
+            }}
+            #save-btn {{
+                display: block; width: 100%; padding: 12px; margin-top: 20px;
+                font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: bold;
+                color: white; background-color: #28a745; border: none;
+                border-radius: 10px; cursor: pointer; text-align: center;
+            }}
+            #save-btn:hover {{ background-color: #218838; }}
+        </style>
+    </head>
+    <body>
+        <div id="report-card">
+            {report_content_html}
+        </div>
+        <button id="save-btn">리포트 이미지로 저장 🖼️</button>
+
+        <script>
+        document.getElementById("save-btn").onclick = function() {{
+            const cardElement = document.getElementById("report-card");
+            const originalButtonText = this.innerHTML;
+            this.innerHTML = "저장 중...";
+            this.disabled = true;
+
+            html2canvas(cardElement, {{
+                useCORS: true,
+                scale: 2, // 고해상도 이미지 생성
+                backgroundColor: '#ffffff'
+            }}).then(canvas => {{
+                const image = canvas.toDataURL("image/png");
+                const link = document.createElement("a");
+                link.href = image;
+                link.download = "win-ugly-report.png";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                this.innerHTML = originalButtonText;
+                this.disabled = false;
+            }});
+        }}
+        </script>
+    </body>
+    </html>
+    """
+    return final_html
 
 # --- Streamlit UI 구성 ---
 st.title("Win Ugly 전략 분석 리포트 🥊")
@@ -205,40 +195,13 @@ if st.button("분석 시작하기", type="primary", use_container_width=True):
                 # 1. Gemini로부터 피드백 텍스트 받기
                 feedback_text = get_gemini_feedback(user_strategy)
                 
-                # 2. 피드백을 HTML 리포트 형식으로 생성
-                report_html = generate_html_report(feedback_text)
+                # 2. 피드백을 기반으로 전체 HTML 컴포넌트 생성
+                report_component = build_report_component(feedback_text)
                 
-                # 3. 화면에 리포트 표시
+                # 3. 화면에 HTML 컴포넌트(리포트 + 버튼) 표시
                 st.markdown("---")
                 st.subheader("🏆 당신을 위한 Win Ugly 코칭 리포트")
-                st.components.v1.html(report_html, height=1000, scrolling=True)
-
-                # 4. 이미지 변환 및 다운로드 버튼 생성
-                try:
-                    # 이미지 저장을 위한 경로 설정
-                    output_path = Path("generated_images")
-                    output_path.mkdir(exist_ok=True)
-                    hti = Html2Image(output_path=str(output_path))
-
-                    # HTML을 이미지로 변환
-                    image_path = hti.screenshot(
-                        html_str=report_html,
-                        save_as="win_ugly_report.png",
-                        size=(700, 900) # 이미지 사이즈 조절
-                    )[0]
-                    
-                    # 다운로드 버튼을 위해 이미지 파일 읽기
-                    with open(image_path, "rb") as f:
-                        st.download_button(
-                            label="리포트 이미지로 저장 🖼️",
-                            data=f.read(),
-                            file_name="win_ugly_report.png",
-                            mime="image/png",
-                            use_container_width=True
-                        )
-                except Exception as img_e:
-                    st.error(f"리포트 이미지 생성에 실패했습니다. 오류: {img_e}")
-                    st.info("참고: 이 기능은 일부 배포 환경에서는 지원되지 않을 수 있습니다.")
+                st.components.v1.html(report_component, height=1000, scrolling=True)
 
             except Exception as e:
                 st.error(f"분석 중 오류가 발생했습니다: {e}")
