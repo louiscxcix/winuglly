@@ -21,6 +21,7 @@ def get_gemini_feedback(user_strategy_input):
     """
     Gemini API를 호출하여 사용자의 전략에 대한 피드백을 생성합니다.
     """
+    # 가독성 향상을 위해 출력 형식에 줄 바꿈을 명시적으로 요청하도록 프롬프트를 수정했습니다.
     prompt = f"""
         당신은 'Win Ugly' 전략에 특화된 코치입니다. 'Win Ugly'는 승리를 위해 때로는 비합리적이거나 비정상적인 방법까지도 불사하는 '독한 선수'의 정신을 의미합니다.
 
@@ -43,11 +44,11 @@ def get_gemini_feedback(user_strategy_input):
 
         ### 2. 칭찬할 점 (Ugly Points 🥊)
         > {{사용자 입력에서 인용한 칭찬할 문장}}
-        {{인용한 문장에 대한 칭찬 및 분석 내용}}
+        {{인용한 문장에 대한 칭찬 및 분석 내용을 작성해주세요.}}
 
         ### 3. 보완할 점 (Nice Points 😇)
         > {{사용자 입력에서 인용한 보완할 문장}}
-        {{인용한 문장에 대한 보완점 및 대안 제시}}
+        {{인용한 문장에 대한 보완점 및 대안 제시 내용을 작성해주세요. 독려, 행동 지침, 승리 최면 등 여러 내용이 있다면, 읽기 쉽도록 문단 사이에 한 줄씩 띄어쓰기(줄 바꿈)를 반드시 포함해주세요.}}
 
         ### 4. 당신의 Win Ugly 미션
         - {{미션 1 내용}}
@@ -69,22 +70,29 @@ def build_report_component(feedback_text):
     # 종합 진단
     if len(sections) > 1:
         report_content_html += f"<h3>1. 종합 진단</h3><p>{sections[1].strip()}</p>"
+    
     # 칭찬할 점
     if len(sections) > 2:
         content = sections[2].split(')', 1)[-1].strip()
         quote_match = re.search(r'>\s*(.*)', content)
         if quote_match:
             quote = quote_match.group(1)
-            feedback = content.split(quote_match.group(0))[-1].strip()
-            report_content_html += f"<h3>2. 칭찬할 점 (Ugly Points 🥊)</h3><div class='quote-box quote-box-good'>{quote}</div><p>{feedback}</p>"
+            raw_feedback = content.split(quote_match.group(0))[-1].strip()
+            # 줄 바꿈을 기준으로 문단을 나누어 각각 <p> 태그로 감쌉니다.
+            feedback_paragraphs = "".join([f"<p>{p.strip()}</p>" for p in raw_feedback.split('\n') if p.strip()])
+            report_content_html += f"<h3>2. 칭찬할 점 (Ugly Points 🥊)</h3><div class='quote-box quote-box-good'>{quote}</div>{feedback_paragraphs}"
+    
     # 보완할 점
     if len(sections) > 3:
         content = sections[3].split(')', 1)[-1].strip()
         quote_match = re.search(r'>\s*(.*)', content)
         if quote_match:
             quote = quote_match.group(1)
-            feedback = content.split(quote_match.group(0))[-1].strip()
-            report_content_html += f"<h3>3. 보완할 점 (Nice Points 😇)</h3><div class='quote-box quote-box-bad'>{quote}</div><p>{feedback}</p>"
+            raw_feedback = content.split(quote_match.group(0))[-1].strip()
+            # 줄 바꿈을 기준으로 문단을 나누어 각각 <p> 태그로 감쌉니다.
+            feedback_paragraphs = "".join([f"<p>{p.strip()}</p>" for p in raw_feedback.split('\n') if p.strip()])
+            report_content_html += f"<h3>3. 보완할 점 (Nice Points 😇)</h3><div class='quote-box quote-box-bad'>{quote}</div>{feedback_paragraphs}"
+    
     # Win Ugly 미션
     if len(sections) > 4:
         missions = sections[4].strip().split('\n- ')
@@ -118,6 +126,10 @@ def build_report_component(feedback_text):
                 border-bottom: 2px solid #e5e7eb;
                 padding-bottom: 10px;
                 margin-top: 20px;
+            }}
+            #report-card p {{
+                line-height: 1.7;
+                margin-bottom: 1em;
             }}
             .quote-box {{
                 border-left: 5px solid; padding: 15px; margin: 15px 0; border-radius: 5px;
