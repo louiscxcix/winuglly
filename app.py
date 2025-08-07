@@ -213,7 +213,8 @@ if st.button("분석 시작하기", type="primary", use_container_width=True):
                 # 3. 화면에 HTML 컴포넌트(리포트 + 버튼) 표시
                 st.markdown("---")
                 st.subheader("🏆 당신을 위한 Win Ugly 코칭 리포트")
-                st.components.v1.html(report_component, height=1000, scrolling=True)
+                # 화면 크기에 맞게 높이를 800으로 조정했습니다.
+                st.components.v1.html(report_component, height=800, scrolling=True)
 
             except Exception as e:
                 st.error(f"분석 중 오류가 발생했습니다: {e}")
