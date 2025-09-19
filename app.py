@@ -1,19 +1,19 @@
-import streamlit as st
-import google.generativeai as genai
+import os
 import re
 
+import google.generativeai as genai
+import streamlit as st
+
 # --- 페이지 기본 설정 ---
-st.set_page_config(
-    page_title="Win Ugly 전략 분석기",
-    page_icon="🥊",
-    layout="centered"
-)
+st.set_page_config(page_title="Win Ugly 전략 분석기", page_icon="🥊", layout="centered")
 
 # --- Gemini API 키 설정 ---
 try:
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 except Exception as e:
-    st.error("Gemini API 키를 설정하는 데 문제가 발생했습니다. Streamlit Cloud의 'Settings > Secrets'에 API 키를 올바르게 설정했는지 확인해주세요.")
+    st.error(
+        "Gemini API 키를 설정하는 데 문제가 발생했습니다. Streamlit Cloud의 'Settings > Secrets'에 API 키를 올바르게 설정했는지 확인해주세요."
+    )
     st.stop()
 
 
@@ -55,48 +55,55 @@ def get_gemini_feedback(user_strategy_input):
         - {{미션 2 내용}}
         - {{미션 3 내용}}
     """
-    model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+    model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
     response = model.generate_content(prompt)
     return response.text
+
 
 def build_report_component(feedback_text):
     """
     피드백 텍스트를 기반으로, 이미지 저장 기능이 포함된 완전한 HTML 컴포넌트를 생성합니다.
     """
     # 1. 피드백 텍스트를 HTML 콘텐츠로 파싱
-    sections = re.split(r'###\s*\d\.', feedback_text)
+    sections = re.split(r"###\s*\d\.", feedback_text)
     report_content_html = ""
 
     # 종합 진단
     if len(sections) > 1:
         report_content_html += f"<h3>1. 종합 진단</h3><p>{sections[1].strip()}</p>"
-    
+
     # 칭찬할 점
     if len(sections) > 2:
-        content = sections[2].split(')', 1)[-1].strip()
-        quote_match = re.search(r'>\s*(.*)', content)
+        content = sections[2].split(")", 1)[-1].strip()
+        quote_match = re.search(r">\s*(.*)", content)
         if quote_match:
             quote = quote_match.group(1)
             raw_feedback = content.split(quote_match.group(0))[-1].strip()
             # 줄 바꿈을 기준으로 문단을 나누어 각각 <p> 태그로 감쌉니다.
-            feedback_paragraphs = "".join([f"<p>{p.strip()}</p>" for p in raw_feedback.split('\n') if p.strip()])
+            feedback_paragraphs = "".join(
+                [f"<p>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()]
+            )
             report_content_html += f"<h3>2. 칭찬할 점 (Ugly Points 🥊)</h3><div class='quote-box quote-box-good'>{quote}</div>{feedback_paragraphs}"
-    
+
     # 보완할 점
     if len(sections) > 3:
-        content = sections[3].split(')', 1)[-1].strip()
-        quote_match = re.search(r'>\s*(.*)', content)
+        content = sections[3].split(")", 1)[-1].strip()
+        quote_match = re.search(r">\s*(.*)", content)
         if quote_match:
             quote = quote_match.group(1)
             raw_feedback = content.split(quote_match.group(0))[-1].strip()
             # 줄 바꿈을 기준으로 문단을 나누어 각각 <p> 태그로 감쌉니다.
-            feedback_paragraphs = "".join([f"<p>{p.strip()}</p>" for p in raw_feedback.split('\n') if p.strip()])
+            feedback_paragraphs = "".join(
+                [f"<p>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()]
+            )
             report_content_html += f"<h3>3. 보완할 점 (Nice Points 😇)</h3><div class='quote-box quote-box-bad'>{quote}</div>{feedback_paragraphs}"
-    
+
     # Win Ugly 미션
     if len(sections) > 4:
-        missions = sections[4].strip().split('\n- ')
-        missions_html = "".join([f"<li>{m.strip()}</li>" for m in missions if m.strip()])
+        missions = sections[4].strip().split("\n- ")
+        missions_html = "".join(
+            [f"<li>{m.strip()}</li>" for m in missions if m.strip()]
+        )
         report_content_html += f"<h3>4. 당신의 Win Ugly 미션</h3><ul class='mission-list'>{missions_html}</ul>"
 
     # 2. 최종 HTML 컴포넌트 조합
@@ -189,6 +196,7 @@ def build_report_component(feedback_text):
     """
     return final_html
 
+
 # --- Streamlit UI 구성 ---
 st.title("Win Ugly 전략 분석 리포트 🥊")
 st.markdown("#### 승리를 위한 '독한' 마음가짐, 지금 바로 진단받으세요.")
@@ -197,7 +205,7 @@ st.markdown("---")
 user_strategy = st.text_area(
     "**당신의 'Win Ugly' 전략을 아래에 입력하세요**",
     height=200,
-    placeholder="예시: 저는 이번 경기에서 절대 실수하지 않도록 최선을 다하고, 동료들을 격려하며, 관중들에게 좋은 모습을 보여주고 싶습니다. 어떤 상황에서도 긍정적인 마음을 잃지 않겠습니다."
+    placeholder="예시: 저는 이번 경기에서 절대 실수하지 않도록 최선을 다하고, 동료들을 격려하며, 관중들에게 좋은 모습을 보여주고 싶습니다. 어떤 상황에서도 긍정적인 마음을 잃지 않겠습니다.",
 )
 
 if st.button("분석 시작하기", type="primary", use_container_width=True):
@@ -206,10 +214,10 @@ if st.button("분석 시작하기", type="primary", use_container_width=True):
             try:
                 # 1. Gemini로부터 피드백 텍스트 받기
                 feedback_text = get_gemini_feedback(user_strategy)
-                
+
                 # 2. 피드백을 기반으로 전체 HTML 컴포넌트 생성
                 report_component = build_report_component(feedback_text)
-                
+
                 # 3. 화면에 HTML 컴포넌트(리포트 + 버튼) 표시
                 st.markdown("---")
                 st.subheader("🏆 당신을 위한 Win Ugly 코칭 리포트")
