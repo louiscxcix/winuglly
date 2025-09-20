@@ -68,9 +68,25 @@ def build_report_component(feedback_text):
     sections = re.split(r"###\s*\d\.", feedback_text)
     report_content_html = ""
 
+    # 리포트 헤더 추가
+    report_content_html += """
+        <div class="report-header">
+            <div class="header-icon">🥊</div>
+            <div class="header-text">
+                <h2>Win Ugly</h2>
+                <p>승리를 위한 '독한' 마음가짐, 지금 바로 진단받으세요.</p>
+            </div>
+        </div>
+    """
+
     # 종합 진단
     if len(sections) > 1:
-        report_content_html += f"<h3>1. 종합 진단</h3><p>{sections[1].strip()}</p>"
+        report_content_html += f"""
+        <div class="report-section">
+            <h3>종합 진단</h3>
+            <p class="section-body">{sections[1].strip()}</p>
+        </div>
+        """
 
     # 칭찬할 점
     if len(sections) > 2:
@@ -79,11 +95,14 @@ def build_report_component(feedback_text):
         if quote_match:
             quote = quote_match.group(1)
             raw_feedback = content.split(quote_match.group(0))[-1].strip()
-            # 줄 바꿈을 기준으로 문단을 나누어 각각 <p> 태그로 감쌉니다.
-            feedback_paragraphs = "".join(
-                [f"<p>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()]
-            )
-            report_content_html += f"<h3>2. 칭찬할 점 (Ugly Points 🥊)</h3><div class='quote-box quote-box-good'>{quote}</div>{feedback_paragraphs}"
+            feedback_paragraphs = "".join([f"<p class='section-body'>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()])
+            report_content_html += f"""
+            <div class="report-section">
+                <h3>칭찬할 점 (Ugly Points)</h3>
+                <div class="quote-box quote-box-good">"{quote}"</div>
+                {feedback_paragraphs}
+            </div>
+            """
 
     # 보완할 점
     if len(sections) > 3:
@@ -92,19 +111,25 @@ def build_report_component(feedback_text):
         if quote_match:
             quote = quote_match.group(1)
             raw_feedback = content.split(quote_match.group(0))[-1].strip()
-            # 줄 바꿈을 기준으로 문단을 나누어 각각 <p> 태그로 감쌉니다.
-            feedback_paragraphs = "".join(
-                [f"<p>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()]
-            )
-            report_content_html += f"<h3>3. 보완할 점 (Nice Points 😇)</h3><div class='quote-box quote-box-bad'>{quote}</div>{feedback_paragraphs}"
+            feedback_paragraphs = "".join([f"<p class='section-body'>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()])
+            report_content_html += f"""
+            <div class="report-section">
+                <h3>보완할 점 (Nice Points)</h3>
+                <div class="quote-box quote-box-bad">"{quote}"</div>
+                {feedback_paragraphs}
+            </div>
+            """
 
     # Win Ugly 미션
     if len(sections) > 4:
         missions = sections[4].strip().split("\n- ")
-        missions_html = "".join(
-            [f"<li>{m.strip()}</li>" for m in missions if m.strip()]
-        )
-        report_content_html += f"<h3>4. 당신의 Win Ugly 미션</h3><ul class='mission-list'>{missions_html}</ul>"
+        missions_html = "".join([f"<li>{m.strip()}</li>" for m in missions if m.strip()])
+        report_content_html += f"""
+        <div class="report-section">
+            <h3>당신의 Win Ugly 미션</h3>
+            <ul class="mission-list">{missions_html}</ul>
+        </div>
+        """
 
     # 2. 최종 HTML 컴포넌트 조합
     final_html = f"""
@@ -113,70 +138,138 @@ def build_report_component(feedback_text):
         <meta charset="utf-8">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
             body {{
                 font-family: 'Noto Sans KR', sans-serif;
-                background-color: #f0f2f6;
+                background-color: #F1F2F5;
+                margin: 0;
+                padding: 16px;
             }}
             #report-card {{
-                border: 1px solid #e0e0e0;
-                border-radius: 15px;
-                padding: 25px;
-                background-color: #ffffff;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-                color: #333;
+                background: white;
+                border-radius: 32px;
+                box-shadow: 0 8px 32px rgba(33, 64, 131, 0.08);
+                color: #374151;
+                overflow: hidden;
             }}
-            #report-card h3 {{
-                font-family: 'Noto Sans KR', sans-serif;
+            .report-header {{
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                padding: 24px;
+            }}
+            .header-icon {{
+                font-size: 40px;
+                width: 68px;
+                height: 68px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: rgba(12, 124, 162, 0.04);
+                border-radius: 50%;
+            }}
+            .header-text h2 {{
+                color: #0D1628;
+                font-size: 20px;
                 font-weight: 700;
-                color: #111827;
-                border-bottom: 2px solid #e5e7eb;
-                padding-bottom: 10px;
-                margin-top: 20px;
+                margin: 0 0 4px 0;
             }}
-            #report-card p {{
+            .header-text p {{
+                color: #86929A;
+                font-size: 13px;
+                margin: 0;
+            }}
+            .report-section {{
+                padding: 24px;
+                border-top: 1px solid #F1F1F1;
+            }}
+            .report-section h3 {{
+                color: #0D1628;
+                font-size: 18px;
+                font-weight: 700;
+                margin: 0 0 16px 0;
+            }}
+            .section-body {{
+                color: #86929A;
+                font-size: 14px;
                 line-height: 1.7;
-                margin-bottom: 1em;
             }}
             .quote-box {{
-                border-left: 5px solid; padding: 15px; margin: 15px 0; border-radius: 5px;
-                font-style: italic; font-weight: bold; color: #1f2937;
+                padding: 12px 16px;
+                margin: 16px 0;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 14px;
+                color: #0D1628;
+                border-left-width: 10px;
+                border-left-style: solid;
             }}
-            .quote-box-good {{ border-color: #3b82f6; background-color: #eff6ff; }}
-            .quote-box-bad {{ border-color: #ef4444; background-color: #fee2e2; }}
-            .mission-list {{ list-style-type: none; padding-left: 0; }}
+            .quote-box-good {{
+                background-color: rgba(49, 157, 208, 0.15);
+                border-color: rgba(49, 157, 208, 0.60);
+            }}
+            .quote-box-bad {{
+                background-color: rgba(238, 125, 141, 0.15);
+                border-color: rgba(238, 125, 141, 0.60);
+            }}
+            .mission-list {{
+                list-style-type: none;
+                padding-left: 0;
+                color: #86929A;
+                font-size: 14px;
+            }}
             .mission-list li {{
-                margin-bottom: 10px; font-weight: 500; display: flex; align-items: flex-start;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: flex-start;
             }}
             .mission-list li::before {{
-                content: "✓"; color: #22c55e; font-weight: bold; margin-right: 10px; font-size: 1.2em;
+                content: "🎯";
+                margin-right: 10px;
+                font-size: 1.2em;
             }}
             #save-btn {{
-                display: block; width: 100%; padding: 12px; margin-top: 20px;
-                font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: bold;
-                color: white; background-color: #28a745; border: none;
-                border-radius: 10px; cursor: pointer; text-align: center;
+                display: block;
+                width: calc(100% - 32px);
+                padding: 16px;
+                margin: 0 16px 16px 16px;
+                font-family: 'Noto Sans KR', sans-serif;
+                font-size: 16px;
+                font-weight: bold;
+                color: white;
+                background: #2BA7D1;
+                border: none;
+                border-radius: 12px;
+                cursor: pointer;
+                text-align: center;
+                transition: all 0.2s ease;
+                box-shadow: 0 5px 15px rgba(43, 167, 209, 0.2);
             }}
-            #save-btn:hover {{ background-color: #218838; }}
+            #save-btn:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(43, 167, 209, 0.3);
+            }}
         </style>
     </head>
     <body>
-        <div id="report-card">
-            {report_content_html}
+        <div id="capture-area">
+            <div id="report-card">
+                {report_content_html}
+            </div>
         </div>
         <button id="save-btn">리포트 이미지로 저장 🖼️</button>
-
         <script>
         document.getElementById("save-btn").onclick = function() {{
-            const cardElement = document.getElementById("report-card");
+            const cardElement = document.getElementById("capture-area");
             const originalButtonText = this.innerHTML;
             this.innerHTML = "저장 중...";
             this.disabled = true;
 
             html2canvas(cardElement, {{
                 useCORS: true,
-                scale: 2, // 고해상도 이미지 생성
-                backgroundColor: '#ffffff'
+                scale: 2,
+                backgroundColor: '#F1F2F5',
+                logging: true
             }}).then(canvas => {{
                 const image = canvas.toDataURL("image/png");
                 const link = document.createElement("a");
@@ -185,7 +278,6 @@ def build_report_component(feedback_text):
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-
                 this.innerHTML = originalButtonText;
                 this.disabled = false;
             }});
@@ -198,33 +290,31 @@ def build_report_component(feedback_text):
 
 
 # --- Streamlit UI 구성 ---
-st.title("Win Ugly 전략 분석 리포트 🥊")
-st.markdown("#### 승리를 위한 '독한' 마음가짐, 지금 바로 진단받으세요.")
-st.markdown("---")
+st.markdown('<style>body { background-color: #F1F2F5; }</style>', unsafe_allow_html=True)
+st.title("🥊 Win Ugly 전략 분석기")
+st.markdown("##### 승리를 위한 '독한' 마음가짐, 지금 바로 진단받으세요.")
 
-user_strategy = st.text_area(
-    "**당신의 'Win Ugly' 전략을 아래에 입력하세요**",
-    height=200,
-    placeholder="예시: 저는 이번 경기에서 절대 실수하지 않도록 최선을 다하고, 동료들을 격려하며, 관중들에게 좋은 모습을 보여주고 싶습니다. 어떤 상황에서도 긍정적인 마음을 잃지 않겠습니다.",
-)
+with st.container(border=True):
+    user_strategy = st.text_area(
+        "**👇 당신의 'Win Ugly' 전략을 여기에 입력하세요**",
+        height=150,
+        placeholder="예시: 저는 이번 경기에서 절대 실수하지 않도록 최선을 다하고, 동료들을 격려하며, 관중들에게 좋은 모습을 보여주고 싶습니다. 어떤 상황에서도 긍정적인 마음을 잃지 않겠습니다.",
+    )
 
-if st.button("분석 시작하기", type="primary", use_container_width=True):
-    if user_strategy:
-        with st.spinner("AI 코치가 당신의 전략을 심층 분석하고 있습니다..."):
-            try:
-                # 1. Gemini로부터 피드백 텍스트 받기
-                feedback_text = get_gemini_feedback(user_strategy)
+    if st.button("분석 시작하기", type="primary", use_container_width=True):
+        if user_strategy:
+            with st.spinner("AI 코치가 당신의 전략을 심층 분석하고 있습니다..."):
+                try:
+                    feedback_text = get_gemini_feedback(user_strategy)
+                    report_component = build_report_component(feedback_text)
+                    st.session_state.report = report_component
+                except Exception as e:
+                    st.error(f"분석 중 오류가 발생했습니다: {e}")
+        else:
+            st.warning("분석할 전략을 입력해주세요.")
 
-                # 2. 피드백을 기반으로 전체 HTML 컴포넌트 생성
-                report_component = build_report_component(feedback_text)
+if 'report' in st.session_state:
+    st.markdown("---")
+    st.subheader("🏆 당신을 위한 Win Ugly 코칭 리포트")
+    st.components.v1.html(st.session_state.report, height=1200, scrolling=True)
 
-                # 3. 화면에 HTML 컴포넌트(리포트 + 버튼) 표시
-                st.markdown("---")
-                st.subheader("🏆 당신을 위한 Win Ugly 코칭 리포트")
-                # 화면 크기에 맞게 높이를 800으로 조정했습니다.
-                st.components.v1.html(report_component, height=800, scrolling=True)
-
-            except Exception as e:
-                st.error(f"분석 중 오류가 발생했습니다: {e}")
-    else:
-        st.warning("분석할 전략을 입력해주세요.")
