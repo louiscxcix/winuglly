@@ -1,27 +1,116 @@
-import os
 import re
-
 import google.generativeai as genai
 import streamlit as st
 
 # --- 페이지 기본 설정 ---
-st.set_page_config(page_title="Win Ugly 전략 분석기", page_icon="🥊", layout="centered")
+st.set_page_config(
+    page_title="Win Ugly 전략 분석기",
+    page_icon="🥊",
+    layout="centered",
+)
+
+# --- UI 스타일링 함수 ---
+def apply_ui_styles():
+    """앱 전체에 적용될 CSS 스타일을 정의합니다."""
+    st.markdown("""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+            
+            :root {
+                --primary-color: #2BA7D1;
+                --black-color: #0D1628;
+                --secondary-color: #86929A;
+                --divider-color: #E5E7EB;
+                --background-color: #F1F2F5;
+            }
+
+            /* --- 라이트 모드 강제 --- */
+            body[data-theme="dark"] {
+                --background-color: #ffffff; 
+                --secondary-background-color: #F1F2F5; 
+                --text-color: var(--black-color);
+                --primary: var(--primary-color);
+            }
+            body[data-theme="dark"] div[data-baseweb="select"] > div,
+            body[data-theme="dark"] .stTextArea textarea {
+                color: var(--black-color);
+            }
+            /* --- 라이트 모드 강제 끝 --- */
+
+            .stApp {
+                background-color: var(--background-color);
+            }
+            
+            div.block-container {
+                padding: 2rem 1.5rem 2.5rem 1.5rem !important;
+                max-width: 720px;
+                margin: 0 auto !important; 
+            }
+            
+            header[data-testid="stHeader"] { display: none !important; }
+
+            body, .stTextArea, .stButton>button {
+                font-family: 'Noto Sans KR', sans-serif;
+            }
+
+            .icon-container {
+                width: 68px; height: 68px;
+                background-color: rgba(43, 167, 209, 0.1);
+                border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                margin-bottom: 12px;
+                font-size: 40px;
+            }
+
+            .title {
+                font-size: 24px; font-weight: 700; color: var(--black-color);
+                line-height: 36px; margin-bottom: 8px;
+            }
+            .subtitle {
+                font-size: 14px; color: var(--secondary-color);
+                line-height: 22px; margin-bottom: 32px;
+            }
+            
+            .input-title {
+                font-size: 18px; font-weight: 700; color: var(--black-color);
+                margin-bottom: 12px;
+            }
+
+            .stTextArea textarea {
+                background-color: #ffffff !important;
+                border: 1px solid var(--divider-color) !important;
+                border-radius: 12px !important;
+            }
+            
+            div[data-testid="stFormSubmitButton"] button {
+                background-color: var(--primary-color) !important;
+                color: white !important;
+                font-size: 16px; font-weight: 700;
+                border-radius: 12px; padding: 14px 0;
+                border: none !important;
+                box-shadow: 0px 5px 10px rgba(43, 167, 209, 0.2);
+            }
+
+            hr {
+                margin: 1.5rem 0 !important;
+                background-color: var(--divider-color);
+                height: 1px;
+                border: none;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
 
 # --- Gemini API 키 설정 ---
 try:
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-except Exception as e:
-    st.error(
-        "Gemini API 키를 설정하는 데 문제가 발생했습니다. Streamlit Cloud의 'Settings > Secrets'에 API 키를 올바르게 설정했는지 확인해주세요."
-    )
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+except (FileNotFoundError, KeyError):
+    st.error("Streamlit Secrets에 'GEMINI_API_KEY'가 설정되지 않았습니다.")
     st.stop()
 
 
 def get_gemini_feedback(user_strategy_input):
-    """
-    Gemini API를 호출하여 사용자의 전략에 대한 피드백을 생성합니다.
-    """
-    # 가독성 향상을 위해 출력 형식에 줄 바꿈을 명시적으로 요청하도록 프롬프트를 수정했습니다.
+    """Gemini API를 호출하여 사용자의 전략에 대한 피드백을 생성합니다."""
     prompt = f"""
         당신은 'Win Ugly' 전략에 특화된 코치입니다. 'Win Ugly'는 승리를 위해 때로는 비합리적이거나 비정상적인 방법까지도 불사하는 '독한 선수'의 정신을 의미합니다.
 
@@ -55,81 +144,39 @@ def get_gemini_feedback(user_strategy_input):
         - {{미션 2 내용}}
         - {{미션 3 내용}}
     """
-    model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
-    response = model.generate_content(prompt)
-    return response.text
-
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        st.error(f"피드백 생성 중 오류가 발생했습니다: {e}")
+        return None
 
 def build_report_component(feedback_text):
-    """
-    피드백 텍스트를 기반으로, 이미지 저장 기능이 포함된 완전한 HTML 컴포넌트를 생성합니다.
-    """
+    """피드백 텍스트를 기반으로, 이미지 저장 기능이 포함된 완전한 HTML 컴포넌트를 생성합니다."""
     # 1. 피드백 텍스트를 HTML 콘텐츠로 파싱
-    sections = re.split(r"###\s*\d\.", feedback_text)
-    report_content_html = ""
+    try:
+        sections = re.split(r"###\s*\d\.", feedback_text)
+        
+        diag_html = f"<div class='card-section'><p class='section-title'>종합 진단</p><p class='section-body'>{sections[1].strip()}</p></div>"
 
-    # 리포트 헤더 추가
-    report_content_html += """
-        <div class="report-header">
-            <div class="header-icon">🥊</div>
-            <div class="header-text">
-                <h2>Win Ugly</h2>
-                <p>승리를 위한 '독한' 마음가짐, 지금 바로 진단받으세요.</p>
-            </div>
-        </div>
-    """
+        praise_content = sections[2].split(")", 1)[-1].strip()
+        praise_quote = re.search(r">\s*(.*)", praise_content).group(1)
+        praise_feedback = praise_content.split(re.search(r">\s*(.*)", praise_content).group(0))[-1].strip().replace("\n", "<br>")
+        praise_html = f"<div class='card-section'><p class='section-title'>칭찬할 점 (Ugly Points)</p><p class='quoted-text good'>“{praise_quote}”</p><p class='section-body'>{praise_feedback}</p></div>"
 
-    # 종합 진단
-    if len(sections) > 1:
-        report_content_html += f"""
-        <div class="report-section">
-            <h3>종합 진단</h3>
-            <p class="section-body">{sections[1].strip()}</p>
-        </div>
-        """
+        improve_content = sections[3].split(")", 1)[-1].strip()
+        improve_quote = re.search(r">\s*(.*)", improve_content).group(1)
+        improve_feedback = improve_content.split(re.search(r">\s*(.*)", improve_content).group(0))[-1].strip().replace("\n", "<br>")
+        improve_html = f"<div class='card-section'><p class='section-title'>보완할 점 (Nice Points)</p><p class='quoted-text bad'>“{improve_quote}”</p><p class='section-body'>{improve_feedback}</p></div>"
 
-    # 칭찬할 점
-    if len(sections) > 2:
-        content = sections[2].split(")", 1)[-1].strip()
-        quote_match = re.search(r">\s*(.*)", content)
-        if quote_match:
-            quote = quote_match.group(1)
-            raw_feedback = content.split(quote_match.group(0))[-1].strip()
-            feedback_paragraphs = "".join([f"<p class='section-body'>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()])
-            report_content_html += f"""
-            <div class="report-section">
-                <h3>칭찬할 점 (Ugly Points)</h3>
-                <div class="quote-box quote-box-good">"{quote}"</div>
-                {feedback_paragraphs}
-            </div>
-            """
-
-    # 보완할 점
-    if len(sections) > 3:
-        content = sections[3].split(")", 1)[-1].strip()
-        quote_match = re.search(r">\s*(.*)", content)
-        if quote_match:
-            quote = quote_match.group(1)
-            raw_feedback = content.split(quote_match.group(0))[-1].strip()
-            feedback_paragraphs = "".join([f"<p class='section-body'>{p.strip()}</p>" for p in raw_feedback.split("\n") if p.strip()])
-            report_content_html += f"""
-            <div class="report-section">
-                <h3>보완할 점 (Nice Points)</h3>
-                <div class="quote-box quote-box-bad">"{quote}"</div>
-                {feedback_paragraphs}
-            </div>
-            """
-
-    # Win Ugly 미션
-    if len(sections) > 4:
         missions = sections[4].strip().split("\n- ")
-        missions_html = "".join([f"<li>{m.strip()}</li>" for m in missions if m.strip()])
-        report_content_html += f"""
-        <div class="report-section">
-            <h3>당신의 Win Ugly 미션</h3>
-            <ul class="mission-list">{missions_html}</ul>
-        </div>
-        """
+        missions_html = "".join([f"<li class='mission-item'>{m.strip()}</li>" for m in missions if m.strip()])
+        missions_section_html = f"<div class='card-section last'><p class='section-title'>Win Ugly 미션</p><ul class='mission-list'>{missions_html}</ul></div>"
+
+    except (IndexError, AttributeError) as e:
+        st.error(f"AI 응답을 처리하는 데 실패했습니다. 다시 시도해주세요. (오류: {e})")
+        return ""
 
     # 2. 최종 HTML 컴포넌트 조합
     final_html = f"""
@@ -138,148 +185,80 @@ def build_report_component(feedback_text):
         <meta charset="utf-8">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
-            body {{
-                font-family: 'Noto Sans KR', sans-serif;
-                background-color: #F1F2F5;
-                margin: 0;
-                padding: 16px;
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+            :root {{
+                --primary-color: #2BA7D1; --black-color: #0D1628;
+                --secondary-color: #86929A; --divider-color: #F1F1F1;
             }}
-            #report-card {{
-                background: white;
-                border-radius: 32px;
-                box-shadow: 0 8px 32px rgba(33, 64, 131, 0.08);
-                color: #374151;
-                overflow: hidden;
+            body {{ font-family: 'Noto Sans KR', sans-serif; }}
+
+            #capture-card {{
+                background: linear-gradient(315deg, rgba(77, 0, 200, 0.03) 0%, rgba(29, 48, 78, 0.03) 100%), #ffffff;
+                border-radius: 32px; padding: 2rem;
+                outline: 8px solid rgba(33, 64, 131, 0.08);
             }}
-            .report-header {{
-                display: flex;
-                align-items: center;
-                gap: 15px;
-                padding: 24px;
+            .card-section {{
+                padding-bottom: 20px; margin-bottom: 20px;
+                border-bottom: 1px solid var(--divider-color);
             }}
-            .header-icon {{
-                font-size: 40px;
-                width: 68px;
-                height: 68px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                background: rgba(12, 124, 162, 0.04);
-                border-radius: 50%;
-            }}
-            .header-text h2 {{
-                color: #0D1628;
-                font-size: 20px;
-                font-weight: 700;
-                margin: 0 0 4px 0;
-            }}
-            .header-text p {{
-                color: #86929A;
-                font-size: 13px;
-                margin: 0;
-            }}
-            .report-section {{
-                padding: 24px;
-                border-top: 1px solid #F1F1F1;
-            }}
-            .report-section h3 {{
-                color: #0D1628;
-                font-size: 18px;
-                font-weight: 700;
-                margin: 0 0 16px 0;
+            .card-section.last {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
+            .section-title {{
+                font-size: 18px; font-weight: 700; color: var(--black-color);
+                margin-bottom: 16px;
             }}
             .section-body {{
-                color: #86929A;
-                font-size: 14px;
+                color: var(--secondary-color); font-size: 14px;
                 line-height: 1.7;
             }}
-            .quote-box {{
-                padding: 12px 16px;
-                margin: 16px 0;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 14px;
-                color: #0D1628;
-                border-left-width: 10px;
-                border-left-style: solid;
+            .quoted-text {{
+                font-size: 15px; font-weight: 700; padding: 12px 16px;
+                border-radius: 8px; margin: 12px 0 16px 0;
             }}
-            .quote-box-good {{
-                background-color: rgba(49, 157, 208, 0.15);
-                border-color: rgba(49, 157, 208, 0.60);
+            .quoted-text.good {{ background-color: rgba(43, 167, 209, 0.1); color: #1e6b85; }}
+            .quoted-text.bad {{ background-color: rgba(239, 68, 68, 0.1); color: #9c2a2a; }}
+
+            .mission-list {{ list-style: none; padding: 0; }}
+            .mission-item {{
+                font-size: 15px; color: var(--secondary-color);
+                margin-bottom: 10px; display: flex; align-items: flex-start;
             }}
-            .quote-box-bad {{
-                background-color: rgba(238, 125, 141, 0.15);
-                border-color: rgba(238, 125, 141, 0.60);
+            .mission-item::before {{
+                content: '🎯'; margin-right: 10px; font-size: 1.2em;
             }}
-            .mission-list {{
-                list-style-type: none;
-                padding-left: 0;
-                color: #86929A;
-                font-size: 14px;
-            }}
-            .mission-list li {{
-                margin-bottom: 10px;
-                display: flex;
-                align-items: flex-start;
-            }}
-            .mission-list li::before {{
-                content: "🎯";
-                margin-right: 10px;
-                font-size: 1.2em;
-            }}
+
             #save-btn {{
-                display: block;
-                width: calc(100% - 32px);
-                padding: 16px;
-                margin: 0 16px 16px 16px;
-                font-family: 'Noto Sans KR', sans-serif;
-                font-size: 16px;
-                font-weight: bold;
-                color: white;
-                background: #2BA7D1;
-                border: none;
-                border-radius: 12px;
-                cursor: pointer;
-                text-align: center;
-                transition: all 0.2s ease;
-                box-shadow: 0 5px 15px rgba(43, 167, 209, 0.2);
-            }}
-            #save-btn:hover {{
-                transform: translateY(-2px);
-                box-shadow: 0 8px 20px rgba(43, 167, 209, 0.3);
+                width: 100%; padding: 14px; margin-top: 1.5rem;
+                font-size: 16px; font-weight: 700; color: white;
+                background-color: var(--primary-color); border: none; border-radius: 12px;
+                cursor: pointer; text-align: center;
+                box-shadow: 0px 5px 10px rgba(43, 167, 209, 0.2);
             }}
         </style>
     </head>
     <body>
-        <div id="capture-area">
-            <div id="report-card">
-                {report_content_html}
-            </div>
+        <div id="capture-card">
+            {diag_html}
+            {praise_html}
+            {improve_html}
+            {missions_section_html}
         </div>
-        <button id="save-btn">리포트 이미지로 저장 🖼️</button>
+        <button id="save-btn">이미지로 저장 📸</button>
+
         <script>
         document.getElementById("save-btn").onclick = function() {{
-            const cardElement = document.getElementById("capture-area");
-            const originalButtonText = this.innerHTML;
-            this.innerHTML = "저장 중...";
-            this.disabled = true;
+            const cardElement = document.getElementById("capture-card");
+            const btn = this;
+            btn.innerHTML = "저장 중..."; btn.disabled = true;
 
             html2canvas(cardElement, {{
-                useCORS: true,
-                scale: 2,
-                backgroundColor: '#F1F2F5',
-                logging: true
+                useCORS: true, scale: 2, backgroundColor: null
             }}).then(canvas => {{
                 const image = canvas.toDataURL("image/png");
                 const link = document.createElement("a");
                 link.href = image;
                 link.download = "win-ugly-report.png";
-                document.body.appendChild(link);
                 link.click();
-                document.body.removeChild(link);
-                this.innerHTML = originalButtonText;
-                this.disabled = false;
+                btn.innerHTML = "이미지로 저장 📸"; btn.disabled = false;
             }});
         }}
         </script>
@@ -289,32 +268,41 @@ def build_report_component(feedback_text):
     return final_html
 
 
-# --- Streamlit UI 구성 ---
-st.markdown('<style>body { background-color: #F1F2F5; }</style>', unsafe_allow_html=True)
-st.title("🥊 Win Ugly 전략 분석기")
-st.markdown("##### 승리를 위한 '독한' 마음가짐, 지금 바로 진단받으세요.")
+# --- 메인 애플리케이션 ---
+def main():
+    apply_ui_styles()
+    
+    st.markdown('<div class="icon-container">🥊</div>', unsafe_allow_html=True)
+    st.markdown('<p class="title">Win Ugly 전략 분석기</p>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">승리를 위한 \'독한\' 마음가짐, 지금 바로 진단받으세요.<br>AI 코치가 냉철하게 분석해 드립니다.</p>', unsafe_allow_html=True)
+    
+    with st.form("input_form"):
+        st.markdown('<p class="input-title">당신의 Win Ugly 전략은 무엇인가요?</p>', unsafe_allow_html=True)
+        user_strategy = st.text_area(
+            "user_strategy",
+            placeholder="예: 저는 이번 경기에서 절대 실수하지 않도록 최선을 다하고, 동료들을 격려하며, 관중들에게 좋은 모습을 보여주고 싶습니다. 어떤 상황에서도 긍정적인 마음을 잃지 않겠습니다.",
+            height=150,
+            label_visibility="collapsed",
+            max_chars=2000
+        )
+        st.markdown("<br>", unsafe_allow_html=True)
+        submitted = st.form_submit_button("AI 코칭 리포트 받기", use_container_width=True)
 
-with st.container(border=True):
-    user_strategy = st.text_area(
-        "**👇 당신의 'Win Ugly' 전략을 여기에 입력하세요**",
-        height=150,
-        placeholder="예시: 저는 이번 경기에서 절대 실수하지 않도록 최선을 다하고, 동료들을 격려하며, 관중들에게 좋은 모습을 보여주고 싶습니다. 어떤 상황에서도 긍정적인 마음을 잃지 않겠습니다.",
-    )
-
-    if st.button("분석 시작하기", type="primary", use_container_width=True):
-        if user_strategy:
-            with st.spinner("AI 코치가 당신의 전략을 심층 분석하고 있습니다..."):
-                try:
-                    feedback_text = get_gemini_feedback(user_strategy)
-                    report_component = build_report_component(feedback_text)
-                    st.session_state.report = report_component
-                except Exception as e:
-                    st.error(f"분석 중 오류가 발생했습니다: {e}")
-        else:
+    if submitted:
+        if not user_strategy:
             st.warning("분석할 전략을 입력해주세요.")
+        else:
+            with st.spinner('AI 코치가 당신의 전략을 심층 분석하고 있습니다...'):
+                feedback_text = get_gemini_feedback(user_strategy)
+                if feedback_text:
+                    st.session_state.report = feedback_text
+    
+    if 'report' in st.session_state and st.session_state.report:
+        st.divider()
+        st.markdown('<p class="title" style="text-align:center; margin-top: 2rem; margin-bottom: 1.5rem;">당신을 위한 Win Ugly 코칭 리포트 🏆</p>', unsafe_allow_html=True)
+        report_component = build_report_component(st.session_state.report)
+        st.components.v1.html(report_component, height=1000, scrolling=True)
 
-if 'report' in st.session_state:
-    st.markdown("---")
-    st.subheader("🏆 당신을 위한 Win Ugly 코칭 리포트")
-    st.components.v1.html(st.session_state.report, height=1200, scrolling=True)
+if __name__ == "__main__":
+    main()
 
