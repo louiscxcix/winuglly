@@ -1,4 +1,6 @@
 import re
+import base64
+from pathlib import Path
 import google.generativeai as genai
 import streamlit as st
 
@@ -8,6 +10,17 @@ st.set_page_config(
     page_icon="🥊",
     layout="centered",
 )
+
+# --- 로컬 이미지 파일을 Base64로 인코딩하는 함수 ---
+def img_to_base64(image_path):
+    """지정된 경로의 이미지 파일을 읽어 Base64 문자열로 변환합니다."""
+    try:
+        path = Path(image_path)
+        with path.open("rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except FileNotFoundError:
+        st.warning(f"아이콘 파일을 찾을 수 없습니다: {image_path}. 기본 아이콘으로 표시됩니다.")
+        return None
 
 # --- UI 스타일링 함수 ---
 def apply_ui_styles():
@@ -59,6 +72,11 @@ def apply_ui_styles():
                 border-radius: 50%;
                 display: flex; align-items: center; justify-content: center;
                 margin-bottom: 12px;
+            }
+            .icon-container img {
+                width: 48px; height: 48px;
+            }
+            .icon-container .default-icon {
                 font-size: 40px;
             }
 
@@ -272,7 +290,17 @@ def build_report_component(feedback_text):
 def main():
     apply_ui_styles()
     
-    st.markdown('<div class="icon-container">🥊</div>', unsafe_allow_html=True)
+    # --- 아이콘 로드 및 표시 ---
+    icon_path = "icon.png" 
+    icon_base64 = img_to_base64(icon_path)
+    
+    if icon_base64:
+        # icon.png 파일이 있으면 해당 이미지를 표시
+        st.markdown(f'<div class="icon-container"><img src="data:image/png;base64,{icon_base64}" alt="App Icon"></div>', unsafe_allow_html=True)
+    else:
+        # 파일이 없으면 기본 이모지 아이콘을 표시
+        st.markdown('<div class="icon-container"><span class="default-icon">🥊</span></div>', unsafe_allow_html=True)
+
     st.markdown('<p class="title">Win Ugly 전략 분석기</p>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">승리를 위한 \'독한\' 마음가짐, 지금 바로 진단받으세요.<br>AI 코치가 냉철하게 분석해 드립니다.</p>', unsafe_allow_html=True)
     
@@ -305,4 +333,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
