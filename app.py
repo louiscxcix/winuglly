@@ -1,6 +1,8 @@
-import re
 import base64
+import os
+import re
 from pathlib import Path
+
 import google.generativeai as genai
 import streamlit as st
 
@@ -11,6 +13,7 @@ st.set_page_config(
     layout="centered",
 )
 
+
 # --- 로컬 이미지 파일을 Base64로 인코딩하는 함수 ---
 def img_to_base64(image_path):
     """지정된 경로의 이미지 파일을 읽어 Base64 문자열로 변환합니다."""
@@ -19,13 +22,17 @@ def img_to_base64(image_path):
         with path.open("rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
     except FileNotFoundError:
-        st.warning(f"아이콘 파일을 찾을 수 없습니다: {image_path}. 기본 아이콘으로 표시됩니다.")
+        st.warning(
+            f"아이콘 파일을 찾을 수 없습니다: {image_path}. 기본 아이콘으로 표시됩니다."
+        )
         return None
+
 
 # --- UI 스타일링 함수 ---
 def apply_ui_styles():
     """앱 전체에 적용될 CSS 스타일을 정의합니다."""
-    st.markdown("""
+    st.markdown(
+        """
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
             
@@ -101,12 +108,19 @@ def apply_ui_styles():
             }
             
             div[data-testid="stFormSubmitButton"] button {
-                background-color: var(--primary-color) !important;
+                background: linear-gradient(135deg, rgba(98, 120.20, 246, 0.20) 0%, rgba(29, 48, 78, 0) 100%), var(--primary-color) !important;
                 color: white !important;
-                font-size: 16px; font-weight: 700;
-                border-radius: 12px; padding: 14px 0;
+                font-size: 14px; font-weight: 400;
+                border-radius: 12px; padding: 14px 36px;
                 border: none !important;
-                box-shadow: 0px 5px 10px rgba(43, 167, 209, 0.2);
+                box-shadow: 0px 5px 10px rgba(26, 26, 26, 0.10);
+                transition: all 0.3s ease;
+            }
+
+            div[data-testid="stFormSubmitButton"] button:hover {
+                background: linear-gradient(135deg, rgba(98, 120.20, 246, 0.30) 0%, rgba(29, 48, 78, 0) 100%), #1A8BB0 !important;
+                box-shadow: 0px 6px 14px rgba(26, 26, 26, 0.15);
+                transform: translateY(-2px);
             }
 
             hr {
@@ -116,12 +130,14 @@ def apply_ui_styles():
                 border: none;
             }
         </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 # --- Gemini API 키 설정 ---
 try:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 except (FileNotFoundError, KeyError):
     st.error("Streamlit Secrets에 'GEMINI_API_KEY'가 설정되지 않았습니다.")
     st.stop()
@@ -162,7 +178,7 @@ def get_gemini_feedback(user_strategy_input):
         - {{미션 2 내용}}
         - {{미션 3 내용}}
     """
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     try:
         response = model.generate_content(prompt)
         return response.text
@@ -170,26 +186,41 @@ def get_gemini_feedback(user_strategy_input):
         st.error(f"피드백 생성 중 오류가 발생했습니다: {e}")
         return None
 
+
 def build_report_component(feedback_text):
     """피드백 텍스트를 기반으로, 이미지 저장 기능이 포함된 완전한 HTML 컴포넌트를 생성합니다."""
     # 1. 피드백 텍스트를 HTML 콘텐츠로 파싱
     try:
         sections = re.split(r"###\s*\d\.", feedback_text)
-        
+
         diag_html = f"<div class='card-section'><p class='section-title'>종합 진단</p><p class='section-body'>{sections[1].strip()}</p></div>"
 
         praise_content = sections[2].split(")", 1)[-1].strip()
         praise_quote = re.search(r">\s*(.*)", praise_content).group(1)
-        praise_feedback = praise_content.split(re.search(r">\s*(.*)", praise_content).group(0))[-1].strip().replace("\n", "<br>")
+        praise_feedback = (
+            praise_content.split(re.search(r">\s*(.*)", praise_content).group(0))[-1]
+            .strip()
+            .replace("\n", "<br>")
+        )
         praise_html = f"<div class='card-section'><p class='section-title'>칭찬할 점 (Ugly Points)</p><p class='quoted-text good'>“{praise_quote}”</p><p class='section-body'>{praise_feedback}</p></div>"
 
         improve_content = sections[3].split(")", 1)[-1].strip()
         improve_quote = re.search(r">\s*(.*)", improve_content).group(1)
-        improve_feedback = improve_content.split(re.search(r">\s*(.*)", improve_content).group(0))[-1].strip().replace("\n", "<br>")
+        improve_feedback = (
+            improve_content.split(re.search(r">\s*(.*)", improve_content).group(0))[-1]
+            .strip()
+            .replace("\n", "<br>")
+        )
         improve_html = f"<div class='card-section'><p class='section-title'>보완할 점 (Nice Points)</p><p class='quoted-text bad'>“{improve_quote}”</p><p class='section-body'>{improve_feedback}</p></div>"
 
         missions = sections[4].strip().split("\n- ")
-        missions_html = "".join([f"<li class='mission-item'>{m.strip()}</li>" for m in missions if m.strip()])
+        missions_html = "".join(
+            [
+                f"<li class='mission-item'>{m.strip()}</li>"
+                for m in missions
+                if m.strip()
+            ]
+        )
         missions_section_html = f"<div class='card-section last'><p class='section-title'>Win Ugly 미션</p><ul class='mission-list'>{missions_html}</ul></div>"
 
     except (IndexError, AttributeError) as e:
@@ -289,49 +320,65 @@ def build_report_component(feedback_text):
 # --- 메인 애플리케이션 ---
 def main():
     apply_ui_styles()
-    
+
     # --- 아이콘 로드 및 표시 ---
-    icon_path = "icon.png" 
+    icon_path = "icon.png"
     icon_base64 = img_to_base64(icon_path)
-    
+
     if icon_base64:
         # icon.png 파일이 있으면 해당 이미지를 표시
-        st.markdown(f'<div class="icon-container"><img src="data:image/png;base64,{icon_base64}" alt="App Icon"></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="icon-container"><img src="data:image/png;base64,{icon_base64}" alt="App Icon"></div>',
+            unsafe_allow_html=True,
+        )
     else:
         # 파일이 없으면 기본 이모지 아이콘을 표시
-        st.markdown('<div class="icon-container"><span class="default-icon">🥊</span></div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="icon-container"><span class="default-icon">🥊</span></div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown('<p class="title">Win Ugly 전략 분석기</p>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">승리를 위한 \'독한\' 마음가짐, 지금 바로 진단받으세요.<br>AI 코치가 냉철하게 분석해 드립니다.</p>', unsafe_allow_html=True)
-    
+    st.markdown(
+        "<p class=\"subtitle\">승리를 위한 '독한' 마음가짐, 지금 바로 진단받으세요.<br>AI 코치가 냉철하게 분석해 드립니다.</p>",
+        unsafe_allow_html=True,
+    )
+
     with st.form("input_form"):
-        st.markdown('<p class="input-title">당신의 Win Ugly 전략은 무엇인가요?</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<p class="input-title">당신의 Win Ugly 전략은 무엇인가요?</p>',
+            unsafe_allow_html=True,
+        )
         user_strategy = st.text_area(
             "user_strategy",
             placeholder="예: 저는 이번 경기에서 절대 실수하지 않도록 최선을 다하고, 동료들을 격려하며, 관중들에게 좋은 모습을 보여주고 싶습니다. 어떤 상황에서도 긍정적인 마음을 잃지 않겠습니다.",
             height=150,
             label_visibility="collapsed",
-            max_chars=2000
+            max_chars=2000,
         )
         st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("AI 코칭 리포트 받기", use_container_width=True)
+        submitted = st.form_submit_button(
+            "AI 코칭 리포트 받기", use_container_width=True
+        )
 
     if submitted:
         if not user_strategy:
             st.warning("분석할 전략을 입력해주세요.")
         else:
-            with st.spinner('AI 코치가 당신의 전략을 심층 분석하고 있습니다...'):
+            with st.spinner("AI 코치가 당신의 전략을 심층 분석하고 있습니다..."):
                 feedback_text = get_gemini_feedback(user_strategy)
                 if feedback_text:
                     st.session_state.report = feedback_text
-    
-    if 'report' in st.session_state and st.session_state.report:
+
+    if "report" in st.session_state and st.session_state.report:
         st.divider()
-        st.markdown('<p class="title" style="text-align:center; margin-top: 2rem; margin-bottom: 1.5rem;">당신을 위한 Win Ugly 코칭 리포트 🏆</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<p class="title" style="text-align:center; margin-top: 2rem; margin-bottom: 1.5rem;">당신을 위한 Win Ugly 코칭 리포트 🏆</p>',
+            unsafe_allow_html=True,
+        )
         report_component = build_report_component(st.session_state.report)
         st.components.v1.html(report_component, height=1000, scrolling=True)
 
+
 if __name__ == "__main__":
     main()
-
-
